@@ -1,0 +1,5 @@
+---
+- hosts: 192.168.1.121
+  remote_user: root
+  roles:
+    - role: cobbler

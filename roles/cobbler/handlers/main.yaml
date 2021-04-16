@@ -1,0 +1,5 @@
+- name: Restart Cobblerd
+  service: name=cobblerd state=restarted
+
+- name: Cobbler Sync
+  shell: "cobbler sync"

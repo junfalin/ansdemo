@@ -1,0 +1,9 @@
+cobbler_packages:
+    - cobbler
+    - cobbler-web
+    - tftp-server
+    - dhcp
+    - httpd
+    - xinetd
+    - fence-agents
+    - pykickstart

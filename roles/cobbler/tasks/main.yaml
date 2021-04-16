@@ -1,0 +1,107 @@
+- name: stop firewalld
+  service:
+    name: firewalld
+    state: stopped
+    enabled: no
+
+- name: setenforce 0
+  shell: setenforce 0
+  ignore_errors: True
+
+- name: SELINUX=disabled
+  selinux:
+    state: disabled
+
+
+- name: download epel
+  get_url:
+    dest: /etc/yum.repos.d/CentOS-Base.repo
+    url: http://mirrors.aliyun.com/repo/Centos-7.repo
+
+- name: install epel-release
+  yum:
+    name: epel-release
+    state: installed
+
+- name: clean and makecache
+  yum:
+    update_cache: yes
+    state: latest
+
+- name: install cobbler etc.
+  yum:
+    name: "{{ cobbler_packages }}"
+    state: installed
+  with_items: "{{ cobbler_packages }}"
+
+- name: enable cobbler etc.
+  service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+    - cobblerd
+    - httpd
+
+- name: change conf
+  shell: "sed -ri '/allow_dynamic_settings:/c\\allow_dynamic_settings: 1' /etc/cobbler/settings"
+
+- name: Restart Cobblerd
+  service:
+    name: cobblerd
+    state: restarted
+
+- name: set server
+  shell: cobbler setting edit --name=server --value={{ inventory_hostname }}
+
+- name: set next_server
+  shell: cobbler setting edit --name=next_server --value={{ inventory_hostname }}
+
+
+- name: Cobbler Sync
+  shell: cobbler sync
+
+- name: set tftp_server
+  shell: "sed -ri '/disable/c\\disable = no' /etc/xinetd.d/tftp"
+
+
+- name: enable tftp xinetd
+  service:
+    name: xinetd
+    state: started
+    enabled: yes
+
+- name: boot-loaders
+  shell: cobbler get-loaders
+
+- name: enable rsyncd
+  service:
+    name: rsyncd
+    state: started
+    enabled: yes
+
+
+- name: default_password
+  shell: "p=`openssl passwd -1 -salt '' 'admin'` | cobbler setting edit --name=default_password_crypted --value=$p"
+
+- name: set dhcp
+  shell: cobbler setting edit --name=manage_dhcp --value=1
+
+- name: config dhcp.template
+  template:
+    src: dhcp.template.j2
+    dest: /etc/cobbler/dhcp.template
+
+- name: Cobbler Sync
+  shell: cobbler sync
+
+- name: fetch ks file
+  fetch:
+    dest: "cobbler/templates/{{ inventory_hostname }}.ks.j2"
+    src: /var/lib/cobbler/kickstarts/sample_end.ks
+    flat: yes
+
+- name: copy ks file
+  template:
+    src: "cobbler/templates/{{ inventory_hostname }}.ks.j2"
+    dest: /var/lib/cobbler/kickstarts/centos7.ks
